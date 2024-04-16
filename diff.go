@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func UnmarshalWithDiff[T any](bytes []byte) (*T, map[string]any, error) {
+func Unmarshal[T any](bytes []byte) (*T, map[string]any, error) {
 	// unmarshal to a map that we then use to create a diff
 	var mapped map[string]any
 	err := json.Unmarshal(bytes, &mapped)

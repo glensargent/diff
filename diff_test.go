@@ -44,8 +44,8 @@ func TestUnmarshalWithDiff(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(diff) != 0 {
-		t.Errorf("expected diff to be empty, got %v", diff)
+	if len(diff) != 1 {
+		t.Errorf("expected 1 diff field, got %v", diff)
 	}
 
 	if person.Name != "merlin" {

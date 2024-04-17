@@ -15,7 +15,7 @@ type Person struct {
 bytes := []byte(`{"name":"merlin", "age": 30, "city": "new york"}`)
 // person will unmarshal as intended
 var person Person
-// diff returns a map of the fields that were unmarshalled, in this case, city
+// diff returns a map of the fields that weren't unmarshalled in to the struct, in this case, city
 difference, err := Unmarshal(bytes, &person)
 if err != nil {
     t.Fatal(err)

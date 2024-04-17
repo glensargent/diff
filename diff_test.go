@@ -1,7 +1,6 @@
 package diff
 
 import (
-	"log"
 	"testing"
 )
 
@@ -162,8 +161,6 @@ func TestUnmarshalWithEmbeddedFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	log.Println(person)
 
 	if len(diff) != 0 {
 		t.Errorf("expected diff to be empty, got %v", diff)

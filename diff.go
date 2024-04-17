@@ -6,52 +6,94 @@ import (
 	"reflect"
 )
 
-func Unmarshal[T any](bytes []byte) (*T, map[string]any, error) {
-	// unmarshal to a map that we then use to create a diff
-	var mapped map[string]any
-	err := json.Unmarshal(bytes, &mapped)
+func Unmarshal(bytes []byte, v any) (map[string]any, error) {
+	var diff map[string]any
+	err := json.Unmarshal(bytes, &diff)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// create a new pointer to the struct
-	structured := new(T)
-	// get the value of the struct
-	structValue := reflect.ValueOf(structured).Elem()
-	// check if the value is a struct
+	structValue := reflect.ValueOf(v).Elem()
 	if structValue.Kind() != reflect.Struct {
-		return nil, nil, errors.New("expected a struct")
+		return nil, errors.New("expected a struct")
 	}
 
-	// iterate over fields
+	err = populateStruct(structValue, diff)
+	if err != nil {
+		return nil, err
+	}
+
+	return diff, nil
+}
+
+func populateStruct(structValue reflect.Value, diff map[string]any) error {
 	typeOfT := structValue.Type()
 	for i := 0; i < typeOfT.NumField(); i++ {
-		// get the field and the json tag
 		field := typeOfT.Field(i)
 		jsonTag := field.Tag.Get("json")
 		if jsonTag == "" {
-			// default to field name if no json tag is present
-			jsonTag = field.Name
+			jsonTag = field.Name // Use field name if no json tag
 		}
 
-		// check if the field is present in the map
-		if value, ok := mapped[jsonTag]; ok {
-			// check if the value is convertible to the field type
-			val := reflect.ValueOf(value)
-			if val.Type().ConvertibleTo(field.Type) {
-				// set the value of the field
-				fieldValue := structValue.Field(i)
-				if fieldValue.CanSet() {
-					fieldValue.Set(val.Convert(field.Type))
-				}
+		value, ok := diff[jsonTag]
+		if !ok {
+			continue // Guard: skip if field is not present in the diff
+		}
+
+		if field.Type.Kind() == reflect.Slice {
+			sliceValue, ok := value.([]any)
+			if !ok {
+				continue // Guard: skip if diff entry is not a slice as expected
 			}
-
-			// remove the field from the map if it was set
-			delete(mapped, jsonTag)
+			err := handleSliceField(structValue.Field(i), sliceValue)
+			if err != nil {
+				return err
+			}
+			delete(diff, jsonTag)
+			continue
 		}
+
+		if field.Type.Kind() == reflect.Struct {
+			structMap, ok := value.(map[string]any)
+			if !ok {
+				continue // Guard: skip if diff entry is not a map as expected
+			}
+			err := populateStruct(structValue.Field(i), structMap)
+			if err != nil {
+				return err
+			}
+			delete(diff, jsonTag)
+			continue
+		}
+
+		val := reflect.ValueOf(value)
+		if !val.Type().ConvertibleTo(field.Type) {
+			continue // Guard: skip if the value is not convertible to the field type
+		}
+
+		fieldValue := structValue.Field(i)
+		if fieldValue.CanSet() {
+			fieldValue.Set(val.Convert(field.Type))
+		}
+		delete(diff, jsonTag)
 	}
 
-	// return the structured value, the diff and the error
-	return structured, mapped, err
+	return nil
 }
 
+func handleSliceField(sliceValue reflect.Value, sliceData []any) error {
+	itemType := sliceValue.Type().Elem()
+	for _, item := range sliceData {
+		newItem := reflect.New(itemType).Elem()
+		itemMap, ok := item.(map[string]any)
+		if !ok {
+			continue // Guard: skip non-map elements
+		}
+		err := populateStruct(newItem, itemMap)
+		if err != nil {
+			return err
+		}
+		sliceValue.Set(reflect.Append(sliceValue, newItem))
+	}
+	return nil
+}

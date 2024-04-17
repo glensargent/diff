@@ -37,7 +37,7 @@ func TestUnmarshalWithDiff(t *testing.T) {
 		Age  int    `json:"age"`
 	}
 
-	bytes := []byte(`{"name":"merlin", "age": 30}`)
+	bytes := []byte(`{"name":"merlin", "age": 30, "city": "new york"}`)
 	var person Person
 	diff, err := Unmarshal(bytes, &person)
 	if err != nil {
